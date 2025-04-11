@@ -1,201 +1,178 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
-#define MAX_VERTICES 100
+typedef struct Graph {
+    int vertex;
+    int edges;
+    int **adjMatrix;
+} Graph;
 
-// Estrutura para representar o grafo
-typedef struct {
-    int adj[MAX_VERTICES][MAX_VERTICES];
-    int numVertices;
-} Grafo;
+int **createMatrix(int row, int column) {
+    int **matrix = (int**)malloc(row * sizeof(int*));
+    for (int i = 0; i < row; i++) {
+        matrix[i] = (int*)malloc(column * sizeof(int));
+        for (int j = 0; j < column; j++) matrix[i][j] = 0;
+    }
+    return matrix;
+}
 
-// Função para inicializar o grafo
-void inicializarGrafo(Grafo *g, int vertices) {
-    g->numVertices = vertices;
-    for (int i = 0; i < vertices; i++) {
-        for (int j = 0; j < vertices; j++) {
-            g->adj[i][j] = 0;
+Graph* createGraph(int v) {
+    Graph *graph = (Graph*)malloc(sizeof(Graph));
+    graph->vertex = v;
+    graph->edges = 0;
+    graph->adjMatrix = createMatrix(v, v);
+    return graph;
+}
+
+void addEdges(Graph *graph, int v, int w) {
+    if (!graph->adjMatrix[v][w]) {
+        graph->adjMatrix[v][w] = 1;
+        graph->adjMatrix[w][v] = 1;
+        graph->edges++;
+    }
+}
+
+void removeEdges(Graph *graph, int v, int w) {
+    if (graph->adjMatrix[v][w]) {
+        graph->adjMatrix[v][w] = 0;
+        graph->adjMatrix[w][v] = 0;
+        graph->edges--;
+    }
+}
+
+void printWalk(int *walk, int length) {
+    for (int i = 0; i < length; i++) {
+        printf("|%d|", walk[i]);
+        if (i < length - 1) printf(" -> ");
+    }
+    printf("\n");
+}
+
+void findWalk(Graph *graph, int current, int *walk, int length, int **visitedEdges) {
+    // Exibe o passeio atual
+    printWalk(walk, length);
+    if (current == graph->vertex - 1) return;
+    // Percorre todos os vértices adjacentes
+    for (int i = 0; i < graph->vertex; i++) {
+        if (graph->adjMatrix[current][i] && !visitedEdges[current][i]) {
+            visitedEdges[current][i] = 1;
+            visitedEdges[i][current] = 1;
+            walk[length] = i;
+            findWalk(graph, i, walk, length + 1, visitedEdges);
+            visitedEdges[current][i] = 0;            
         }
     }
 }
 
-// Função para adicionar aresta
-void adicionarAresta(Grafo *g, int origem, int destino) {
-    g->adj[origem][destino]++;
-    g->adj[destino][origem]++; // Para grafos não direcionados
+void getWalk(Graph *graph) {
+    int **visitedEdges = createMatrix(graph->vertex, graph->vertex);    
+    int *walk = (int*)malloc(graph->vertex * sizeof(int));
+    for (int i = 0; i < graph->vertex; i++) {
+        // Inicializa o array `walk` com o vértice inicial
+        walk[0] = i;
+        findWalk(graph, i, walk, 1, visitedEdges);
+    }
+    free(walk);
 }
 
-// Função para verificar se é um passeio válido
-bool ehPasseio(Grafo *g, int sequencia[], int tamanho) {
-    for (int i = 0; i < tamanho - 1; i++) {
-        if (g->adj[sequencia[i]][sequencia[i+1]] == 0) {
-            return false;
-        }
+void printPath(int *path, int length) {
+    for (int i = 0; i < length; i++) {
+        printf("|%d|", path[i]);
+        if (i < length - 1) printf(" -> ");
     }
-    return true;
+    printf("\n");
 }
 
-// Função para verificar se é uma trilha (passeio sem arestas repetidas)
-bool ehTrilha(Grafo *g, int sequencia[], int tamanho) {
-    if (!ehPasseio(g, sequencia, tamanho)) {
-        return false;
-    }
-    
-    // Cria uma cópia da matriz de adjacência para marcar arestas usadas
-    int copiaAdj[MAX_VERTICES][MAX_VERTICES];
-    for (int i = 0; i < g->numVertices; i++) {
-        for (int j = 0; j < g->numVertices; j++) {
-            copiaAdj[i][j] = g->adj[i][j];
+void findPath(Graph * graph, int current, int *path, int length, int **visitedEdges) {
+    if (length > 1) printPath(path, length);
+
+    for (int i = current; i < graph->vertex; i++) {
+        if (graph->adjMatrix[current][i] && !visitedEdges[current][i]) {
+            visitedEdges[current][i] = 1;
+            visitedEdges[i][current] = 1;
+            path[length] = i;
+            findPath(graph, i, path, length + 1, visitedEdges);
+            return;
         }
     }
-    
-    for (int i = 0; i < tamanho - 1; i++) {
-        int u = sequencia[i];
-        int v = sequencia[i+1];
-        if (copiaAdj[u][v] == 0) {
-            return false;
-        }
-        copiaAdj[u][v]--;
-        copiaAdj[v][u]--;
-    }
-    
-    return true;
 }
 
-// Função para verificar se é um caminho (trilha sem vértices repetidos)
-bool ehCaminho(Grafo *g, int sequencia[], int tamanho) {
-    if (!ehTrilha(g, sequencia, tamanho)) {
-        return false;
+void getPath(Graph * graph) {
+    int **visitedEdges = createMatrix(graph->vertex, graph->vertex);
+    int *path = (int*)malloc(graph->vertex * sizeof(int));
+    for (int i = 0; i < graph->vertex; i++) {
+        path[0] = i;
+        findPath(graph, i, path, 1, visitedEdges);
+        visitedEdges = createMatrix(graph->vertex, graph->vertex);
     }
-    
-    // Verifica vértices repetidos
-    for (int i = 0; i < tamanho; i++) {
-        for (int j = i + 1; j < tamanho; j++) {
-            if (sequencia[i] == sequencia[j]) {
-                return false;
-            }
-        }
-    }
-    
-    return true;
+    free(path);
 }
 
-// Função para verificar se o grafo é conexo
-bool ehConexo(Grafo *g) {
-    if (g->numVertices == 0) return true;
-    
-    bool visitado[MAX_VERTICES] = {false};
-    int pilha[MAX_VERTICES];
-    int topo = -1;
-    
-    // DFS a partir do vértice 0
-    pilha[++topo] = 0;
-    visitado[0] = true;
-    int count = 1;
-    
-    while (topo >= 0) {
-        int v = pilha[topo--];
-        for (int u = 0; u < g->numVertices; u++) {
-            if (g->adj[v][u] > 0 && !visitado[u]) {
-                visitado[u] = true;
-                pilha[++topo] = u;
-                count++;
-            }
+void findTrail(Graph *graph, int current, int *trail, int length, int **visitedEdges) {
+    if (length > 1) {
+        printWalk(trail, length); // reaproveita a função de impressão
+    }
+
+    for (int i = 0; i < graph->vertex; i++) {
+        if (graph->adjMatrix[current][i] && !visitedEdges[current][i]) {
+            visitedEdges[current][i] = 1;
+            visitedEdges[i][current] = 1;
+            trail[length] = i;
+            findTrail(graph, i, trail, length + 1, visitedEdges);
+            visitedEdges[current][i] = 0;
+            visitedEdges[i][current] = 0;
         }
     }
-    
-    return (count == g->numVertices);
 }
 
-// Função para verificar se o grafo é Euleriano
-bool ehEuleriano(Grafo *g) {
-    if (!ehConexo(g)) {
-        return false;
+void getTrail(Graph *graph) {
+    int **visitedEdges = createMatrix(graph->vertex, graph->vertex);
+    int *trail = (int*)malloc(graph->vertex * sizeof(int));
+
+    printf("Trails:\n");
+    for (int i = 0; i < graph->vertex; i++) {
+        trail[0] = i;
+        findTrail(graph, i, trail, 1, visitedEdges);
     }
-    
-    // Verifica se todos os vértices têm grau par
-    for (int i = 0; i < g->numVertices; i++) {
-        int grau = 0;
-        for (int j = 0; j < g->numVertices; j++) {
-            grau += g->adj[i][j];
-        }
-        if (grau % 2 != 0) {
-            return false;
-        }
+
+    free(trail);
+    for (int i = 0; i < graph->vertex; i++) {
+        free(visitedEdges[i]);
     }
-    
-    return true;
+    free(visitedEdges);
 }
 
-// Função para imprimir sequências
-void imprimirSequencia(int sequencia[], int tamanho) {
-    printf("[");
-    for (int i = 0; i < tamanho; i++) {
-        printf("%d", sequencia[i]);
-        if (i < tamanho - 1) printf(", ");
+int isEulerian(Graph *graph) {
+    
+
+    for (int i = 0; i < graph->vertex; i++) {
+        int degree = 0;
+        for (int j = 0; j < graph->vertex; j++) if (graph->adjMatrix[i][j]) degree++;
+        if (degree % 2 != 0) return 0;
     }
-    printf("]");
+    return 1;
 }
 
-int main() {
-    Grafo g;
-    int vertices, arestas;
+void main() {
+    Graph *graph = createGraph(3);
+    addEdges(graph, 0, 1);
+    addEdges(graph, 0, 2);
+    addEdges(graph, 1, 2);
     
-    printf("Digite o número de vértices: ");
-    scanf("%d", &vertices);
-    inicializarGrafo(&g, vertices);
+    //addEdges(graph, 1, 2);
     
-    printf("Digite o número de arestas: ");
-    scanf("%d", &arestas);
-    
-    printf("Digite as arestas (origem destino):\n");
-    for (int i = 0; i < arestas; i++) {
-        int u, v;
-        scanf("%d %d", &u, &v);
-        adicionarAresta(&g, u, v);
+    printf("Walks:\n");
+    getWalk(graph);
+    printf("Paths:\n");
+    getPath(graph);
+    printf("Trails:\n");
+    getTrail(graph);
+
+    if (isEulerian(graph)) {
+        printf("The graph is Eulerian.\n");
+    }
+    else {
+        printf("The graph is not Eulerian.\n");
     }
     
-    // Verifica se é Euleriano
-    if (ehEuleriano(&g)) {
-        printf("\nO grafo é Euleriano.\n");
-    } else {
-        printf("\nO grafo não é Euleriano.\n");
-    }
-    
-    // Testar sequências
-    printf("\nTeste de sequências (digite 0 para encerrar):\n");
-    while (1) {
-        int tamanho;
-        printf("\nTamanho da sequência (0 para sair): ");
-        scanf("%d", &tamanho);
-        
-        if (tamanho <= 0) break;
-        
-        int sequencia[tamanho];
-        printf("Digite a sequência de vértices (separados por espaço): ");
-        for (int i = 0; i < tamanho; i++) {
-            scanf("%d", &sequencia[i]);
-        }
-        
-        printf("Sequência: ");
-        imprimirSequencia(sequencia, tamanho);
-        
-        if (ehPasseio(&g, sequencia, tamanho)) {
-            printf("\n- É um passeio válido");
-            
-            if (ehTrilha(&g, sequencia, tamanho)) {
-                printf("\n- É uma trilha válida");
-                
-                if (ehCaminho(&g, sequencia, tamanho)) {
-                    printf("\n- É um caminho válido");
-                }
-            }
-        } else {
-            printf("\n- Não é um passeio válido");
-        }
-        printf("\n");
-    }
-    
-    return 0;
 }
